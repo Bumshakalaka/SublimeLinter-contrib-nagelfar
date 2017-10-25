@@ -1,0 +1,23 @@
+{
+	"folders":
+	[
+		{
+			"file_exclude_patterns":
+			[
+				"*=*",
+				"*.orig",
+				"*.rej",
+				".hg*",
+				"*.zip",
+				"*.exe"
+			],
+			"folder_exclude_patterns":
+			[
+				".hg",
+				"temp"
+			],
+			"follow_symlinks": true,
+			"path": "."
+		}
+	]
+} 
