@@ -1,0 +1,10 @@
+SublimeLinter-contrib-nagelfar
+-------------------------------
+This linter plugin for SublimeLinter provides an interface to nagelfar.
+
+** IMPORTANT! **
+
+Before this plugin will activate, you *must*
+follow the installation instructions here:
+
+https://github.com/Bumshakalaka/SublimeLinter-contrib-nagelfar
