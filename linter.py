@@ -20,17 +20,25 @@ from os.path import join, splitext, abspath
 from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
 from re import search
 
-def get_project_folder():
+def convertPath(path):
+    """ Convert /D/path/path2 -> D:/path/path2"""
+    if sublime.platform() == 'windows':
+        path = path.split('/')
+        path[1] = path[1] + ':'
+        path = "\\".join(path[1:])
+    return path
 
+def get_project_folder():
     proj_file = sublime.active_window().project_file_name()
     if proj_file:
-        return os.path.dirname(proj_file)
+        project_data = sublime.active_window().project_data()   
+        if project_data['folders'][0]['path'] is '.':
+            return os.path.dirname(proj_file)
+        return convertPath(project_data['folders'][0]['path'])
 
-    # Use current file's folder when no project file is opened.
-    proj_file = sublime.active_window().active_view().file_name()
-    if proj_file:
-        return os.path.dirname(proj_file)
-    return '.'
+    #File without project - return None
+    #Because of rebuild function. If we return file folder, it can happen that rebuild would like to scane whole disc
+    return 
 
 
 def apply_template(s):
@@ -50,6 +58,10 @@ class builder():
 
     def rebuild(self, masterPath):
         persist.printf('Rebuilding in folder {}'.format(masterPath))
+        if masterPath is None:
+            persist.printf('Nothing to rebuild')
+            return
+
         self._scaner.scan(masterPath, ['.tcl', '.tm'])
         si = STARTUPINFO()
         si.dwFlags |= STARTF_USESHOWWINDOW
@@ -59,9 +71,12 @@ class builder():
                 continue
             #persist.printf('Rebuilding for file {}'.format(file))
             files.append(file)
+
         p = Popen([join(self._nagelfar).replace('\\','\\\\'),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
         output, err = p.communicate()
-        persist.printf('output: ' + str(output) + ', error: ' + str(err))
+
+        if persist.settings.get('debug'):
+            persist.printf('output: ' + str(output) + ', error: ' + str(err))
 
 class pathScanner():
     '''Initialize, scand and create iterator'''
@@ -130,6 +145,12 @@ class Nagelfar(Linter):
         #TODO: add other OS. If linter not exists, search PATH
         BASE_PATH = os.path.abspath(os.path.dirname(__file__))
 
+        """
+        Build syntax database basis using tcl, tm files form project folder, if file opened in project
+        otherwise, do not create it.
+        database is .syntaxdb file in project folder
+        currently each time new database is build each time linter starts
+        """
         bd = builder(os.path.join(BASE_PATH, 'nagelfar_sh.exe'))
         bd.rebuild(get_project_folder())
 
@@ -162,5 +183,4 @@ class Nagelfar(Linter):
 
         if persist.settings.get('debug'):
             persist.printf('cmd to execute: '+ cmd)
-            persist.printf('Proj folder: '+ get_project_folder())
         return cmd
