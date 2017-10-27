@@ -15,7 +15,10 @@ import os
 import shlex
 import string
 import sublime
-
+from os import walk, system
+from os.path import join, splitext, abspath
+from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
+from re import search
 
 def get_project_folder():
 
@@ -39,6 +42,50 @@ def apply_template(s):
     templ = string.Template(s)
     return templ.safe_substitute(mapping)
 
+class builder():
+    def __init__(self, nagelfar_path):
+        persist.printf('Builder initialized')
+        self._nagelfar = nagelfar_path
+        self._scaner = pathScanner()
+
+    def rebuild(self, masterPath):
+        persist.printf('Rebuilding in folder {}'.format(masterPath))
+        self._scaner.scan(masterPath, ['.tcl', '.tm'])
+        si = STARTUPINFO()
+        si.dwFlags |= STARTF_USESHOWWINDOW
+        files = []
+        for file in self._scaner:
+            if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
+                continue
+            #persist.printf('Rebuilding for file {}'.format(file))
+            files.append(file)
+        p = Popen([join(self._nagelfar).replace('\\','\\\\'),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
+        output, err = p.communicate()
+        persist.printf('output: ' + str(output) + ', error: ' + str(err))
+
+class pathScanner():
+    '''Initialize, scand and create iterator'''
+
+    def __init__(self):
+        self._files = []
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if len(self._files) == 0:
+            raise StopIteration
+        else:
+            return self._files.pop()
+
+    def scan(self, path, extensions):
+        '''Append to _files'''
+        self._files = []
+        for (dirpath, dirnames, filenames) in walk(path):
+            for file in filenames:
+                if splitext(file)[1] in extensions:
+                    self._files.append(abspath(join(dirpath, file)))
+        return 0
 
 class Nagelfar(Linter):
     """Provides an interface to nagelfar."""
@@ -79,6 +126,13 @@ class Nagelfar(Linter):
         and include paths based on settings.
         """
         settings = self.get_view_settings()
+        #Get linter folder. Only for windows
+        #TODO: add other OS. If linter not exists, search PATH
+        BASE_PATH = os.path.abspath(os.path.dirname(__file__))
+
+        bd = builder(os.path.join(BASE_PATH, 'nagelfar_sh.exe'))
+        bd.rebuild(get_project_folder())
+
         dbs = {}
         try:
             dbs['tcl_db'] = settings.get('tcl_db', self.default_settings['tcl_db'])
@@ -91,9 +145,7 @@ class Nagelfar(Linter):
             if persist.settings.get('debug'):
                 persist.printf('additional not found in dict')
 
-        #Get linter folder. Only for windows
-        #TODO: add other OS. If linter not exists, search PATH
-        BASE_PATH = os.path.abspath(os.path.dirname(__file__))
+
         cmd = os.path.join(BASE_PATH, 'nagelfar_sh.exe')
 
         # depends of the user settings, add or not additional parameters to linter
