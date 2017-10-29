@@ -15,8 +15,8 @@ import os
 import shlex
 import string
 import sublime
-from os import walk, system
-from os.path import join, splitext, abspath
+from os import walk, system, listdir
+from os.path import join, splitext, abspath, isdir
 from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
 from re import search
 
@@ -31,14 +31,14 @@ def convertPath(path):
 def get_project_folder():
     proj_file = sublime.active_window().project_file_name()
     if proj_file:
-        project_data = sublime.active_window().project_data()   
+        project_data = sublime.active_window().project_data()
         if project_data['folders'][0]['path'] is '.':
             return os.path.dirname(proj_file)
         return convertPath(project_data['folders'][0]['path'])
 
     #File without project - return None
     #Because of rebuild function. If we return file folder, it can happen that rebuild would like to scane whole disc
-    return 
+    return
 
 
 def apply_template(s):
@@ -50,12 +50,23 @@ def apply_template(s):
     templ = string.Template(s)
     return templ.safe_substitute(mapping)
 
+
 class builder():
     def __init__(self, executable, nagelfar_path):
         persist.printf('Builder initialized')
         self._executable = executable
         self._nagelfar = nagelfar_path
+        self._folderScaner = folderScanner()
         self._scaner = pathScanner()
+
+    def _rebuild(self, masterPath, files):
+        si = STARTUPINFO()
+        si.dwFlags |= STARTF_USESHOWWINDOW
+        p = Popen([self._executable, join(self._nagelfar),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
+        output, err = p.communicate()
+
+        if persist.settings.get('debug'):
+            persist.printf('output: ' + str(output) + ', error: ' + str(err))
 
     def rebuild(self, masterPath):
         persist.printf('Rebuilding in folder {}'.format(masterPath))
@@ -63,21 +74,29 @@ class builder():
             persist.printf('Nothing to rebuild')
             return
 
-        self._scaner.scan(masterPath, ['.tcl', '.tm'])
-        si = STARTUPINFO()
-        si.dwFlags |= STARTF_USESHOWWINDOW
+        self._folderScaner.scan(masterPath)
+        for folder in self._folderScaner:
+            self._scaner.scan(folder, ['.tcl', '.tm'])
+            files = []
+            for file in self._scaner:
+                if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
+                    continue
+                persist.printf('Rebuilding for file {}'.format(file))
+                files.append(file)
+            if len(files) > 0:
+                '''Create database only if there is something interesting'''
+                self._rebuild(folder, files)
+        '''Root folder'''
+        self._scaner.scan(masterPath, ['.tcl', '.tm'], False)
         files = []
         for file in self._scaner:
             if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
                 continue
-            #persist.printf('Rebuilding for file {}'.format(file))
+            persist.printf('Rebuilding for file {}'.format(file))
             files.append(file)
+        if len(files) > 0:
+            self._rebuild(masterPath, files)
 
-        p = Popen([self._executable, join(self._nagelfar),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
-        output, err = p.communicate()
-
-        if persist.settings.get('debug'):
-            persist.printf('output: ' + str(output) + ', error: ' + str(err))
 
 class pathScanner():
     '''Initialize, scand and create iterator'''
@@ -94,13 +113,46 @@ class pathScanner():
         else:
             return self._files.pop()
 
-    def scan(self, path, extensions):
-        '''Append to _files'''
+    def scan(self, path, extensions, subfolders = True):
+        '''
+        Scan path and filter using provided extensions.and
+        Scanner can go into subfolders according to the received subfolders value
+        '''
         self._files = []
-        for (dirpath, dirnames, filenames) in walk(path):
-            for file in filenames:
-                if splitext(file)[1] in extensions:
-                    self._files.append(abspath(join(dirpath, file)))
+        if subfolders:
+            for (dirpath, dirnames, filenames) in walk(path):
+                for file in filenames:
+                    if splitext(file)[1] in extensions:
+                        self._files.append(abspath(join(dirpath, file)))
+        else:
+            for file in listdir(path=path):
+                if not isdir(join(path,file)):
+                    if splitext(file)[1] in extensions:
+                        persist.printf('First level file found: {}'.format(join(path,file)))
+                        self._files.append(join(path,file))
+        return 0
+
+class folderScanner():
+
+    def __init__(self):
+        self._folders = []
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if len(self._folders) == 0:
+            raise StopIteration
+        else:
+            return self._folders.pop()
+
+    def scan(self, path):
+        '''Append to _folders'''
+        self._folders = []
+        for entry in listdir(path=path):
+            if isdir(join(path,entry)):
+                persist.printf('First level folder found: {}'.format(join(path,entry)))
+                self._folders.append(join(path,entry))
         return 0
 
 class Nagelfar(Linter):
@@ -133,10 +185,10 @@ class Nagelfar(Linter):
         We override this method, so we can change executable, add extra flags
         and include paths based on settings.
         """
-        
+
         # take linter folder
         BASE_PATH = os.path.abspath(os.path.dirname(__file__))
-        
+
         # take executable file from linter class (in this case tclsh)
         cmd = self.executable
 
