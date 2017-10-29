@@ -11,20 +11,13 @@ This linter plugin for [SublimeLinter][docs] provides an interface to [nagelfar]
 SublimeLinter 3 must be installed in order to use this plugin. If SublimeLinter 3 is not installed, please follow the instructions [here][installation].
 
 ### Linter installation
-Before using this plugin, you must ensure that `nagelfar` is installed on your system. To install `nagelfar`, do the following:
+Before using this plugin, you must ensure that `tclsh` interpreter is installed on your system and it's available in PATH.
+The plugin itself contains 'nagelfar' linter in starkit form. Thus, is OS-independent.
 
-1. Install `nagelfar` by:
-
-   1. downloading nagelfar executable file from [nagelfar](https://sourceforge.net/projects/nagelfar/)
-   2. Copy the file to your TCL interpreter bin folder (e.g. c:\tcl\bin) or any other place which has been added to PATH
-
-
-**Note:** This plugin requires `nagelfar` 1.2.0 or later.
+**Note:** This plugin requires `tclsh` 8.5 or later.
 
 ### Linter configuration
-In order for `nagelfar` to be executed by SublimeLinter, you must ensure that its path is available to SublimeLinter. Before going any further, please read and follow the steps in [“Finding a linter executable”](http://sublimelinter.readthedocs.org/en/latest/troubleshooting.html#finding-a-linter-executable) through “Validating your PATH” in the documentation.
-
-Once you have installed and configured `nagelfar`, you can proceed to install the SublimeLinter-contrib-nagelfar plugin if it is not yet installed.
+The plugin contains 'nagelfar' v1.2.5 linter in starkit form. Thus, is OS-independent.
 
 ### Plugin installation
 Please use [Package Control][pc] to install the linter plugin. This will ensure that the plugin will be updated when new versions are available. If you want to install from source so you can modify the source code, you probably know what you are doing so we won’t cover that here.
@@ -35,15 +28,14 @@ To install via Package Control, do the following:
 
 1. When the plugin list appears, type `nagelfar`. Among the entries you should see `SublimeLinter-contrib-nagelfar`. If that entry is not highlighted, use the keyboard or mouse to select it.
 
+To install manually:
+
+1. Download  SublimeLinter-contrib-nagelfar
+2. unpack to `SUBLIME_DIR\Data\Packages\SublimeLinter-contrib-nagelfar`
+
 ## Settings
 For general information on how SublimeLinter works with settings, please see [Settings][settings]. For information on generic linter settings, please see [Linter Settings][linter-settings].
 
-In addition to the standard SublimeLinter settings, SublimeLinter-contrib-nagelfar provides its own settings. Those marked as “Inline Setting” or “Inline Override” may also be [used inline][inline-settings].
-
-|Setting|Description|Inline Setting|Inline Override|
-|:------|:----------|:------------:|:-------------:|
-|foo|Something.|&#10003;| |
-|bar|Something else.| |&#10003;|
 
 ## Contributing
 If you would like to contribute enhancements or fixes, please do the following:
