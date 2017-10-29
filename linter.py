@@ -51,8 +51,9 @@ def apply_template(s):
     return templ.safe_substitute(mapping)
 
 class builder():
-    def __init__(self, nagelfar_path):
+    def __init__(self, executable, nagelfar_path):
         persist.printf('Builder initialized')
+        self._executable = executable
         self._nagelfar = nagelfar_path
         self._scaner = pathScanner()
 
@@ -72,7 +73,7 @@ class builder():
             #persist.printf('Rebuilding for file {}'.format(file))
             files.append(file)
 
-        p = Popen([join(self._nagelfar).replace('\\','\\\\'),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
+        p = Popen([self._executable, join(self._nagelfar),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
         output, err = p.communicate()
 
         if persist.settings.get('debug'):
@@ -107,24 +108,14 @@ class Nagelfar(Linter):
 
     syntax = 'tcl'
 
-    #TODO: add other OS. Currently only windows supported
+    #If tclsh is not available in the system - it makes no sense to go further
+    executable = 'tclsh'
+    cmd = 'tclsh'
 
-    # if "executable" is not found here, this linter won't be activated.
-    # The cmd method created linter 'executable'
-    if sublime.platform() == 'windows':
-        # Windows OS would have "cmd"
-        executable = 'cmd'
-        cmd = 'cmd'
-        version_args = None
-        version_re = r'^.+\[Version\s(?P<version>\d+)\..+'
-        version_requirement = '>=1'
-    else:
-        # A non-Windows OS
-        executable = 'ls'
-        cmd = 'ls'
-        version_args = '--version'
-        version_re = r'^.+>?\s(?P<version>\d+)\..+'
-        version_requirement = '>=1'
+    version_args = '\"' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'version.tcl') + '\"'
+
+    version_re = r'^Version:\s(?P<version>\d+\.\d+\.\d+)'
+    version_requirement = '>=8.5'
 
 
     regex = r'^.*:?\s?Line\s+(?P<line>[0-9]+):\s(?:(?P<error>[E])|(?P<warning>[WN]))\s(?P<message>[^\"]+\"?(?P<near>[^\"]+).+\"?)'
@@ -143,9 +134,12 @@ class Nagelfar(Linter):
         and include paths based on settings.
         """
         
-        #TODO: If linter not exists, search PATH
-        #Get linter folder which is used to get nagelfar_sh.exe file
+        # take linter folder
         BASE_PATH = os.path.abspath(os.path.dirname(__file__))
+        
+        # take executable file from linter class (in this case tclsh)
+        cmd = self.executable
+
         settings = self.get_view_settings()
 
         """
@@ -154,9 +148,11 @@ class Nagelfar(Linter):
         database is .syntaxdb file in project folder
         currently each time new database is build each time linter starts
         """
-        bd = builder(os.path.join(BASE_PATH, 'nagelfar_sh.exe'))
+        bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.kit'))
         bd.rebuild(get_project_folder())
 
+        # Add negelfar.kit - the linter os-independent executable file which is executed by tclsh
+        cmd += ' \"' + os.path.join(BASE_PATH, 'nagelfar.kit') + '\" '
         dbs = {}
         try:
             dbs['tcl_db'] = settings.get('tcl_db', self.default_settings['tcl_db'])
@@ -170,8 +166,6 @@ class Nagelfar(Linter):
                 persist.printf('additional not found in dict')
 
 
-        cmd = os.path.join(BASE_PATH, 'nagelfar_sh.exe')
-
         # depends of the user settings, add or not additional parameters to linter
         if len(dbs) > 0:
             cmd += ' -s '
@@ -179,6 +173,7 @@ class Nagelfar(Linter):
         if 'tcl_db' in dbs:
             cmd += dbs['tcl_db'] + ' '
 
+        #TODO: only on Windows??
         cmd = cmd.replace('\\','\\\\')
 
         if 'additional_db' in dbs:
