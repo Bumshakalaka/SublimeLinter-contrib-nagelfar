@@ -107,6 +107,8 @@ class Nagelfar(Linter):
 
     syntax = 'tcl'
 
+    #TODO: add other OS. Currently only windows supported
+
     # if "executable" is not found here, this linter won't be activated.
     # The cmd method created linter 'executable'
     if sublime.platform() == 'windows':
@@ -140,10 +142,11 @@ class Nagelfar(Linter):
         We override this method, so we can change executable, add extra flags
         and include paths based on settings.
         """
-        settings = self.get_view_settings()
-        #Get linter folder. Only for windows
-        #TODO: add other OS. If linter not exists, search PATH
+        
+        #TODO: If linter not exists, search PATH
+        #Get linter folder which is used to get nagelfar_sh.exe file
         BASE_PATH = os.path.abspath(os.path.dirname(__file__))
+        settings = self.get_view_settings()
 
         """
         Build syntax database basis using tcl, tm files form project folder, if file opened in project
