@@ -76,42 +76,21 @@ class builder():
 
         self._folderScaner.scan(masterPath)
         for folder in self._folderScaner:
-            self._scaner.scan(folder, ['.tcl', '.tm'])
-            files = []
-            for file in self._scaner:
-                if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
-                    continue
-                persist.printf('Rebuilding for file {}'.format(file))
-                files.append(file)
+            files = self._scaner.scan(folder, ['.tcl', '.tm'])
             if len(files) > 0:
                 '''Create database only if there is something interesting'''
                 self._rebuild(folder, files)
         '''Root folder'''
-        self._scaner.scan(masterPath, ['.tcl', '.tm'], False)
-        files = []
-        for file in self._scaner:
-            if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
-                continue
-            persist.printf('Rebuilding for file {}'.format(file))
-            files.append(file)
+        files = self._scaner.scan(masterPath, ['.tcl', '.tm'], False)
         if len(files) > 0:
             self._rebuild(masterPath, files)
 
 
 class pathScanner():
-    '''Initialize, scand and create iterator'''
+    '''Scan provided directory for interesting files'''
 
     def __init__(self):
         self._files = []
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if len(self._files) == 0:
-            raise StopIteration
-        else:
-            return self._files.pop()
 
     def scan(self, path, extensions, subfolders = True):
         '''
@@ -123,14 +102,18 @@ class pathScanner():
             for (dirpath, dirnames, filenames) in walk(path):
                 for file in filenames:
                     if splitext(file)[1] in extensions:
+                        if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
+                            continue
                         self._files.append(abspath(join(dirpath, file)))
         else:
             for file in listdir(path=path):
                 if not isdir(join(path,file)):
                     if splitext(file)[1] in extensions:
                         persist.printf('First level file found: {}'.format(join(path,file)))
+                        if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
+                            continue
                         self._files.append(join(path,file))
-        return 0
+        return self._files
 
 class folderScanner():
 
@@ -200,6 +183,10 @@ class Nagelfar(Linter):
         database is .syntaxdb file in project folder
         currently each time new database is build each time linter starts
         """
+        # Check current file
+        filename = sublime.active_window().active_view().file_name()
+        persist.printf("Current filename {}".format(filename))
+        #TO DO: check if started first time or again?
         bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.kit'))
         bd.rebuild(get_project_folder())
 
