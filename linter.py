@@ -58,6 +58,11 @@ class builder():
         self._scaner = pathScanner()
 
     def rebuild(self, masterPath):
+        db_file = os.path.join(masterPath,'.syntaxdb')
+        if os.path.exists(db_file) and os.path.getmtime(db_file) + 600.0 > time.time():
+            if persist.settings.get('debug'):
+                persist.printf('.syntaxdb exists and is was created within 10min ' + str(os.path.getmtime(db_file)) + ' os time ' + str(time.time()))
+            return
         persist.printf('Rebuilding in folder {}'.format(masterPath))
         if masterPath is None:
             persist.printf('Nothing to rebuild')
@@ -73,7 +78,7 @@ class builder():
             #persist.printf('Rebuilding for file {}'.format(file))
             files.append(file)
 
-        p = Popen([self._executable, join(self._nagelfar),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
+        p = Popen([self._executable, join(self._nagelfar),'-header',db_file] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
         output, err = p.communicate()
 
         if persist.settings.get('debug'):
