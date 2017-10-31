@@ -15,6 +15,7 @@ import os
 import shlex
 import string
 import sublime
+import time
 from os import walk, system, listdir
 from os.path import join, splitext, abspath, isdir
 from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
@@ -60,6 +61,11 @@ class builder():
         self._scaner = pathScanner()
 
     def _rebuild(self, masterPath, files):
+        db_file = os.path.join(masterPath,'.syntaxdb')
+        if os.path.exists(db_file) and os.path.getmtime(db_file) + 600.0 > time.time():
+            if persist.settings.get('debug'):
+                persist.printf('.syntaxdb exists and is was created within 10min ' + str(os.path.getmtime(db_file)) + ' os time ' + str(time.time()))
+            return
         si = STARTUPINFO()
         si.dwFlags |= STARTF_USESHOWWINDOW
         p = Popen([self._executable, join(self._nagelfar),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
