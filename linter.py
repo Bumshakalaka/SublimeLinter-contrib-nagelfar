@@ -59,17 +59,20 @@ class builder():
         self._nagelfar = nagelfar_path
         self._folderScaner = folderScanner()
         self._scaner = pathScanner()
+        self._databases = []
 
     def _rebuild(self, masterPath, files):
         db_file = os.path.join(masterPath,'.syntaxdb')
+        self._databases.append(db_file)
         if os.path.exists(db_file) and os.path.getmtime(db_file) + 600.0 > time.time():
             if persist.settings.get('debug'):
                 persist.printf('.syntaxdb exists and is was created within 10min ' + str(os.path.getmtime(db_file)) + ' os time ' + str(time.time()))
             return
         si = STARTUPINFO()
         si.dwFlags |= STARTF_USESHOWWINDOW
-        p = Popen([self._executable, join(self._nagelfar),'-header',join(masterPath,'.syntaxdb')] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
+        p = Popen([self._executable, join(self._nagelfar),'-header',db_file] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
         output, err = p.communicate()
+
 
         if persist.settings.get('debug'):
             persist.printf('output: ' + str(output) + ', error: ' + str(err))
@@ -102,7 +105,7 @@ class builder():
             files.append(file)
         if len(files) > 0:
             self._rebuild(masterPath, files)
-
+        return self._databases
 
 class pathScanner():
     '''Initialize, scand and create iterator'''
@@ -206,8 +209,9 @@ class Nagelfar(Linter):
         database is .syntaxdb file in project folder
         currently each time new database is build each time linter starts
         """
+        databases = []
         bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.kit'))
-        bd.rebuild(get_project_folder())
+        databases = bd.rebuild(get_project_folder())
 
         # Add negelfar.kit - the linter os-independent executable file which is executed by tclsh
         cmd += ' \"' + os.path.join(BASE_PATH, 'nagelfar.kit') + '\" '
@@ -236,6 +240,9 @@ class Nagelfar(Linter):
 
         if 'additional_db' in dbs:
             cmd += apply_template(' '.join([shlex.quote(include) for include in dbs['additional_db']]))
+
+        if len(databases) > 0:
+            cmd += ' ' + apply_template(' '.join([shlex.quote(include) for include in databases]))
 
         if persist.settings.get('debug'):
             persist.printf('cmd to execute: '+ cmd)
