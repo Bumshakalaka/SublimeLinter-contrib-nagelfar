@@ -19,7 +19,7 @@ import time
 from os import walk, system, listdir
 from os.path import join, splitext, abspath, isdir
 from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
-from re import search
+from re import search, sub
 
 def convertPath(path):
     """ Convert /D/path/path2 -> D:/path/path2"""
@@ -77,23 +77,42 @@ class builder():
         if persist.settings.get('debug'):
             persist.printf('output: ' + str(output) + ', error: ' + str(err))
 
-    def rebuild(self, masterPath):
+    def rebuild(self, masterPath, fileName = None):
+        '''
+        Rebuild all syntax databases if fileName = None or rebuild one database if fileName is provided
+        '''
         persist.printf('Rebuilding in folder {}'.format(masterPath))
         if masterPath is None:
             persist.printf('Nothing to rebuild')
             return
 
-        self._folderScaner.scan(masterPath)
-        for folder in self._folderScaner:
-            files = self._scaner.scan(folder, ['.tcl', '.tm'])
+        if fileName is not None:
+            '''Rebuild only one database for fileName'''
+            persist.printf('Rebuild only one database')
+            '''
+            TO DO extract folder name
+            '''
+            persist.printf('search {} in {}'.format(masterPath,fileName))
+            if fileName.startswith(masterPath):
+                '''It's project file'''
+                folder = fileName.replace(masterPath,'').split('\\')[1]
+                persist.printf('Folder to update {}'.format(folder))
+                files = self._scaner.scan(folder, ['.tcl', '.tm'])
+                if len(files) > 0:
+                    self._rebuild(folder, files)
+            return self._databases
+        else:
+            self._folderScaner.scan(masterPath)
+            for folder in self._folderScaner:
+                files = self._scaner.scan(folder, ['.tcl', '.tm'])
+                if len(files) > 0:
+                    '''Create database only if there is something interesting'''
+                    self._rebuild(folder, files)
+            '''Root folder'''
+            files = self._scaner.scan(masterPath, ['.tcl', '.tm'], False)
             if len(files) > 0:
-                '''Create database only if there is something interesting'''
-                self._rebuild(folder, files)
-        '''Root folder'''
-        files = self._scaner.scan(masterPath, ['.tcl', '.tm'], False)
-        if len(files) > 0:
-            self._rebuild(masterPath, files)
-        return self._databases
+                self._rebuild(masterPath, files)
+            return self._databases
 
 class pathScanner():
     '''Scan provided directory for interesting files'''
@@ -198,7 +217,7 @@ class Nagelfar(Linter):
         persist.printf("Current filename {}".format(filename))
         #TO DO: check if started first time or again?
         bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.kit'))
-        databases = bd.rebuild(get_project_folder())
+        databases = bd.rebuild(get_project_folder(), filename)
 
         # Add negelfar.kit - the linter os-independent executable file which is executed by tclsh
         cmd += ' \"' + os.path.join(BASE_PATH, 'nagelfar.kit') + '\" '
