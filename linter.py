@@ -53,6 +53,9 @@ def apply_template(s):
 
 
 class builder():
+    '''
+    Syntax database builder
+    '''
     def __init__(self, executable, nagelfar_path):
         self._executable = executable
         self._nagelfar = nagelfar_path
@@ -60,7 +63,9 @@ class builder():
         self._scaner = pathScanner()
 
     def _checkIfInitialScan(self,masterPath):
-        '''Check if all files in the project was already scanned'''
+        '''
+        Check if all files in the project was already scanned
+        '''
         for file in listdir(path=masterPath):
             if file == '.tcllinter':
                 persist.printf('Not initial scann - limit rebuilding!')
@@ -70,6 +75,9 @@ class builder():
         return True
 
     def _checkDBfiles(self,masterPath):
+        '''
+        Return all available databases for currently used project
+        '''
         _databases = []
         self._folderScaner.scan(masterPath)
         for folder in self._folderScaner:
@@ -83,6 +91,9 @@ class builder():
         return _databases
 
     def _returnDBfolderForFile(self,masterPath,fileName):
+        '''
+        Return folder in which database is stored for provided file
+        '''
         if fileName.startswith(masterPath):
             '''It's project file'''
             folder = fileName.replace(masterPath,'').split('\\')
@@ -95,6 +106,9 @@ class builder():
         return False
 
     def _rebuild(self, masterPath, files):
+        '''
+        Rebuild syntax database for provided files
+        '''
         db_file = join(masterPath,'.syntaxdb')
         if os.path.exists(db_file) and os.path.getmtime(db_file) + 600.0 > time.time():
             if persist.settings.get('debug'):
@@ -125,9 +139,6 @@ class builder():
         if fileName is not None:
             '''Rebuild only one database for fileName'''
             persist.printf('Rebuild only one database')
-            '''
-            TO DO extract folder name
-            '''
             folder = self._returnDBfolderForFile(masterPath,fileName)
             files = self._scaner.scan(folder, ['.tcl', '.tm'])
             if len(files) > 0:
@@ -147,7 +158,9 @@ class builder():
             return self._checkDBfiles(masterPath)
 
 class pathScanner():
-    '''Scan provided directory for interesting files'''
+    '''
+    Scan provided directory for interesting files
+    '''
 
     def __init__(self):
         self._files = []
@@ -175,6 +188,9 @@ class pathScanner():
         return self._files
 
 class folderScanner():
+    '''
+    Scan project folder for available folders (databases are created per first folder level)
+    '''
 
     def __init__(self):
         self._folders = []
