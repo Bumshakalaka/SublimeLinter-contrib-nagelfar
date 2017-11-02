@@ -54,16 +54,48 @@ def apply_template(s):
 
 class builder():
     def __init__(self, executable, nagelfar_path):
-        persist.printf('Builder initialized')
         self._executable = executable
         self._nagelfar = nagelfar_path
         self._folderScaner = folderScanner()
         self._scaner = pathScanner()
-        self._databases = []
+
+    def _checkIfInitialScan(self,masterPath):
+        '''Check if all files in the project was already scanned'''
+        for file in listdir(path=masterPath):
+            if file == '.tcllinter':
+                persist.printf('Not initial scann - limit rebuilding!')
+                return False
+        persist.printf('Initial scann rebuild all')
+        open(join(masterPath,'.tcllinter'),'a').close()
+        return True
+
+    def _checkDBfiles(self,masterPath):
+        _databases = []
+        self._folderScaner.scan(masterPath)
+        for folder in self._folderScaner:
+            for file in listdir(path=folder):
+                if file == '.syntaxdb':
+                    _databases.append((join(folder,file)))
+        '''Check also root folder for database!'''
+        for file in listdir(path=masterPath):
+            if file == '.syntaxdb':
+                _databases.append((join(masterPath,file)))
+        return _databases
+
+    def _returnDBfolderForFile(self,masterPath,fileName):
+        if fileName.startswith(masterPath):
+            '''It's project file'''
+            folder = fileName.replace(masterPath,'').split('\\')
+            '''Check if its subfolder or root'''
+            if len(folder) == 2:
+                persist.printf('Saved in the root folder!')
+                return masterPath
+            persist.printf('Subfolder to rebuild: {}'.format(folder[1]))
+            return join(masterPath,folder[1])
+        return False
 
     def _rebuild(self, masterPath, files):
-        db_file = os.path.join(masterPath,'.syntaxdb')
-        self._databases.append(db_file)
+        db_file = join(masterPath,'.syntaxdb')
         if os.path.exists(db_file) and os.path.getmtime(db_file) + 600.0 > time.time():
             if persist.settings.get('debug'):
                 persist.printf('.syntaxdb exists and is was created within 10min ' + str(os.path.getmtime(db_file)) + ' os time ' + str(time.time()))
@@ -81,10 +113,14 @@ class builder():
         '''
         Rebuild all syntax databases if fileName = None or rebuild one database if fileName is provided
         '''
-        persist.printf('Rebuilding in folder {}'.format(masterPath))
+        persist.printf('Rebuilding in project folder: {}'.format(masterPath))
         if masterPath is None:
             persist.printf('Nothing to rebuild')
             return
+
+        if self._checkIfInitialScan(masterPath):
+            '''If initial scann just ignore currently saved file and rebuild all'''
+            fileName = None
 
         if fileName is not None:
             '''Rebuild only one database for fileName'''
@@ -92,15 +128,11 @@ class builder():
             '''
             TO DO extract folder name
             '''
-            persist.printf('search {} in {}'.format(masterPath,fileName))
-            if fileName.startswith(masterPath):
-                '''It's project file'''
-                folder = fileName.replace(masterPath,'').split('\\')[1]
-                persist.printf('Folder to update {}'.format(folder))
-                files = self._scaner.scan(folder, ['.tcl', '.tm'])
-                if len(files) > 0:
-                    self._rebuild(folder, files)
-            return self._databases
+            folder = self._returnDBfolderForFile(masterPath,fileName)
+            files = self._scaner.scan(folder, ['.tcl', '.tm'])
+            if len(files) > 0:
+                self._rebuild(folder, files)
+            return self._checkDBfiles(masterPath)
         else:
             self._folderScaner.scan(masterPath)
             for folder in self._folderScaner:
@@ -112,7 +144,7 @@ class builder():
             files = self._scaner.scan(masterPath, ['.tcl', '.tm'], False)
             if len(files) > 0:
                 self._rebuild(masterPath, files)
-            return self._databases
+            return self._checkDBfiles(masterPath)
 
 class pathScanner():
     '''Scan provided directory for interesting files'''
@@ -137,7 +169,6 @@ class pathScanner():
             for file in listdir(path=path):
                 if not isdir(join(path,file)):
                     if splitext(file)[1] in extensions:
-                        persist.printf('First level file found: {}'.format(join(path,file)))
                         if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
                             continue
                         self._files.append(join(path,file))
@@ -162,7 +193,6 @@ class folderScanner():
         self._folders = []
         for entry in listdir(path=path):
             if isdir(join(path,entry)):
-                persist.printf('First level folder found: {}'.format(join(path,entry)))
                 self._folders.append(join(path,entry))
         return 0
 
@@ -214,7 +244,6 @@ class Nagelfar(Linter):
         databases = []
         # Check current file
         filename = sublime.active_window().active_view().file_name()
-        persist.printf("Current filename {}".format(filename))
         #TO DO: check if started first time or again?
         bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.kit'))
         databases = bd.rebuild(get_project_folder(), filename)
