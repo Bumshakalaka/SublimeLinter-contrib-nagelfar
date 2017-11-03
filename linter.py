@@ -17,9 +17,20 @@ import string
 import sublime
 import time
 from os import walk, system, listdir
-from os.path import join, splitext, abspath, isdir
+from os.path import join, splitext, abspath, isdir, split
 from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
 from re import search, sub
+
+def splitPath(path):
+    dirname = path
+    path_split = []
+    while True:
+        dirname, leaf = split(dirname)
+        if leaf:
+            path_split = [leaf] + path_split #Adds one element, at the beginning of the list
+        else:
+            path_split = [dirname] + path_split
+            return path_split
 
 def convertPath(path):
     """ Convert /D/path/path2 -> D:/path/path2"""
@@ -96,7 +107,7 @@ class builder():
         '''
         if fileName.startswith(masterPath):
             '''It's project file'''
-            folder = fileName.replace(masterPath,'').split('\\')
+            folder = splitPath(fileName.replace(masterPath,''))
             '''Check if its subfolder or root'''
             if len(folder) == 2:
                 persist.printf('Saved in the root folder!')
