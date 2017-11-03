@@ -298,7 +298,7 @@ class Nagelfar(Linter):
         if 'additional_db' in dbs:
             cmd += apply_template(' '.join([shlex.quote(include) for include in dbs['additional_db']]))
 
-        if len(databases) > 0:
+        if databases is not None and len(databases) > 0:
             cmd += ' ' + apply_template(' '.join([shlex.quote(include) for include in databases]))
 
         if persist.settings.get('debug'):
