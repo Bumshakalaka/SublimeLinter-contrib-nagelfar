@@ -1,0 +1,387 @@
+
+Plugins
+*******
+
+
+Introduction
+============
+
+Nagelfar allows you to set up a plugin that can hook up and affect the
+checks in different stages.
+
+A plugin can be used for things like:
+
+* Enforce local rules
+
+* Handle checks for custom commands that cannot be handled within
+  Nagelfar's syntax tokens
+
+* Annotate or ignore constructs in e.g. legacy code that cannot be
+  changed
+
+* Collect statistics, e.g. a call graph
+
+See further Examples below.
+
+
+Generic rules
+-------------
+
+A plugin is a Tcl script file that must start with the verbatim
+sequence "##Nagelfar Plugin :". A plugin is sourced and used in its
+own safe interpreter and thus have free access to its own global
+space. Hookup points are defined by declaring specifically named
+procedures as specified below, and apart from those, a plugin can
+define and do whatever within the limits of a safe interpreter.
+
+In addition to the standard safe interpreter environment, a plugin has
+access to stdout as well.
+
+Note that backslash-newline is always removed at an early stage in
+Nagelfar, so when hooks receive "unparsed" data, those have been
+removed.
+
+
+Usage
+-----
+
+To activate a plugin, use "-plugin <plugin>" on the command line.
+
+Nagelfar searches for plugins (looking for names <plugin> and
+<plugin>.tcl) in the following places:
+
+* . (Current directory)
+
+* ./plugins
+
+* <nagelfar source>/../..
+
+* <nagelfar source>/../../plugins
+
+* <nagelfar source>/../plugins
+
+Currently only one plugin can be used, and it cannot be selected from
+the GUI.
+
+
+Result of plugin procedures
+---------------------------
+
+Each hookup procedure returns a list with an even number of elements.
+These are interpreted as keyword-value pairs, with the following
+keywords allowed.
+
+* replace : The value is used to replace the incoming value for
+  further processing.
+
+* comment : The value is fed through inline comment parsing to
+  affect surroundings.
+
+* error   : The value produces an error message.
+
+* warning : The value produces a warning message.
+
+* note    : The value produces a note message.
+
+To do nothing, return an empty list.
+
+
+Information dictionary
+----------------------
+
+Each hook procedure receives an information dictionary as one
+argument. It currently has at least these elements:
+
+* namespace : Current namespace
+
+* caller    : Current procedure
+
+* file      : Current file
+
+* firstpass : True during first scan of code. False during full
+  check.
+
+* vars      : Dictionary where each key is a known variable in
+  current scope
+
+
+Hooks
+=====
+
+
+Finalizing checking
+-------------------
+
+"proc finalizePlugin {} { }"
+
+If this procedure is declared, it is called at the end of checking.
+
+The return value from finalizePlugin may only contain messages.
+
+
+Raw Statement Hook
+------------------
+
+"proc statementRaw {stmt info} { }"
+
+If declared, this receives each statement unparsed.
+
+
+Statement Words Hook
+--------------------
+
+"proc statementWords {words info} { }"
+
+If declared, this receives each statement split into a list of words
+but otherwise unprocessed/unsubstituted. Things like quotes and braces
+are left in the words.
+
+Many checks can be done in a simple way here since you have direct
+access to the command word and the number of arguments.
+
+
+Raw Expression Hook
+-------------------
+
+"proc earlyExpr {exp info} { }"
+
+If declared, this receives any expression unparsed.
+
+
+Late Expression Hook
+--------------------
+
+"proc lateExpr {exp info} { }"
+
+If declared, this receives any expression after all variable or
+command substitutions have been replaced by "${_____}". It is still
+basically the same expression and this allows a handler that knows
+fewer syntax rules.
+
+
+Variable Write Hook
+-------------------
+
+"proc varWrite {var info} { }"
+
+If declared, this receives any variable written to.
+
+
+Variable Read Hook
+------------------
+
+"proc varRead {var info} { }"
+
+If declared, this receives any variable read from.
+
+
+Examples
+========
+
+
+Call Graph
+----------
+
+   ##Nagelfar Plugin : Create a call graph
+   proc statementWords {words info} {
+       set caller [dict get $info caller]
+       set callee [lindex $words 0]
+       if {$caller ne "" && $callee ne ""} {
+           array set ::callGraph [list "$caller -> $callee" 1]
+       }
+       return
+   }
+   proc finalizePlugin {} {
+       foreach item [lsort -dictionary [array names ::callGraph]] {
+           puts "Call: $item"
+       }
+       return
+   }
+
+
+Ignore a command
+----------------
+
+   ##Nagelfar Plugin : Ignore mugg command
+   proc statementRaw {stmt info} {
+       set res {}
+       if {[string match "mugg *" $stmt]} {
+           lappend res replace {}
+       }
+       return $res
+   }
+
+
+Handle known side effect
+------------------------
+
+   ##Nagelfar Plugin : Handle known side effect
+   proc statementWords {words info} {
+       set res {}
+       # The command "mugg" sets a variable in the caller
+       if {[lindex $words 0] eq "mugg"} {
+           lappend res comment
+           lappend res "##nagelfar variable gurka"
+       }
+       return $res
+   }
+
+
+Forbid operator
+---------------
+
+   ##Nagelfar Plugin : Forbid operator
+   proc lateExpr {exp info} {
+       if {[string match "* eq *" $exp]} {
+           return [list error "Operator \"eq\" is forbidden here"]
+       }
+       return {}
+   }
+
+
+Allow custom operator
+---------------------
+
+   ##Nagelfar Plugin : Allow custom operator
+   proc lateExpr {exp info} {
+       # Just replace it with something further processing recognizes
+       set exp [string map {{ my_cool_bin_op } { eq }} $exp]
+       return [list replace $exp]
+   }
+
+
+Handle special syntax
+---------------------
+
+   ##Nagelfar Plugin : Handle special syntax
+   proc statementWords {words info} {
+       set res {}
+       # We are only interested in calls to "mugg"
+       if {[lindex $words 0] ne "mugg"} {
+           return $res
+       }
+       # If a command has varying syntax depending on contents it can be handled,
+       # compare e.g. with a complex command like "if".
+       # In this example, only 1 or 5 arguments are allowed, which could
+       # also be expressed directly with the syntax string "1: x : 5"
+       lappend res comment
+       if {[llength $words] == 6} {
+           lappend res "##nagelfar syntax mugg x x x x x"
+       } else {
+           lappend res "##nagelfar syntax mugg x"
+       }
+       return $res
+   }
+
+
+Check for unused globals
+------------------------
+
+   ##Nagelfar Plugin : Check for unused globals
+   set ::data {}
+   proc statementWords {words info} {
+       if {[lindex $words 0] ne "global"} return
+       set caller [dict get $info caller]
+       foreach var [lrange $words 1 end] {
+           dict set ::data $caller $var 1
+       }
+       return
+   }
+   proc varWrite {var info} {
+       set caller [dict get $info caller]
+       dict unset ::data $caller $var
+       return
+   }
+   proc varRead {var info} {
+       set caller [dict get $info caller]
+       dict unset ::data $caller $var
+       return
+   }
+   proc finalizePlugin {} {
+       set res {}
+       foreach caller [dict keys $::data] {
+           foreach var [dict keys [dict get $::data $caller]] {
+               lappend res warning "Unused global '$var' in proc '$caller'"
+           }
+       }
+       lappend res note "Globals checked by plugin"
+       return $res
+   }
+
+
+Sqlite code
+-----------
+
+In code like this, using the sqlite3 package:
+
+   db eval { SELECT rowid,name,start FROM SQLYSTUFF } {
+       list $rowid $name
+   }
+   db eval {UPDATE tasks SET user = $u, initial = 320 WHERE rowid = $g}
+
+Nagelfar cannot know that rowid and name are existing variables and
+will give an error. A plugin can parse the SQL and provide this info.
+
+Similarly Nagelfar does not know that the SQL code can contain
+variable references. Checking those can also be done.
+
+   ##Nagelfar Plugin : Sqlite handler
+   proc statementWords {words info} {
+       # We are only interested in calls to "db eval <sql> ?<code>?"
+       if {[lindex $words 0] ne "db"} return
+       if {[lindex $words 1] ne "eval"} return
+       if {[llength $words] < 3} return
+       set sql [lindex $words 2]
+       set res {}
+       # Looking for variable reads
+       foreach {_ var} [regexp -all -inline {[$:](\w+)} $sql] {
+           if {![dict exists $info vars $var]} {
+               lappend res warning
+               lappend res "Unknown variable '$var'"
+           }
+       }
+       # Simple "parser" assuming a certain format to detect variables set
+       if {[llength $words] == 4} {
+           if {[regexp {SELECT (.*) FROM} [lindex $words 2] -> vars]} {
+               foreach var [regexp -all -inline {\w+} $vars] {
+                   lappend res comment
+                   lappend res "##nagelfar variable $var"
+               }
+           }
+       }
+       return $res
+   }
+
+
+Namespace eval check
+--------------------
+
+Detect creative writing in namespace eval code.
+
+   ##Nagelfar Plugin : Namespace eval check
+   proc statementWords {words info} {
+       set caller [dict get $info caller]
+       # Code in proc is not interesting
+       if {$caller ne ""} return
+       set ns [dict get $info namespace]
+       # Global is not interesting
+       if {$ns eq "" || $ns eq "::"} return
+       set cmd [lindex $words 0]
+       if {$cmd eq "variable"} {
+           foreach {var _} [lindex $words 1 end] {
+               set ::known(${ns}::$var) 1
+           }
+       }
+       return
+   }
+   proc varWrite {var info} {
+       set caller [dict get $info caller]
+       # Code in proc is not interesting
+       if {$caller ne ""} return
+       set ns [dict get $info namespace]
+       # Global is not interesting
+       if {$ns eq "" || $ns eq "::"} return
+       if {![info exists ::known(${ns}::$var)]} {
+           return [list warning "Writing $var without variable call"]
+       }
+   }

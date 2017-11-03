@@ -267,11 +267,11 @@ class Nagelfar(Linter):
         # Check current file
         filename = sublime.active_window().active_view().file_name()
         #TO DO: check if started first time or again?
-        bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.kit'))
+        bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.vfs', 'lib', 'app-nagelfar', 'nagelfar.tcl'))
         databases = bd.rebuild(get_project_folder(), filename)
 
-        # Add negelfar.kit - the linter os-independent executable file which is executed by tclsh
-        cmd += ' \"' + os.path.join(BASE_PATH, 'nagelfar.kit') + '\" '
+        # Use sources - tclkit have to installed on linux to run *,kit files
+        cmd += ' \"' + os.path.join(BASE_PATH, 'nagelfar.vfs', 'lib', 'app-nagelfar', 'nagelfar.tcl') + '\" '
         dbs = {}
         try:
             dbs['tcl_db'] = settings.get('tcl_db', self.default_settings['tcl_db'])
