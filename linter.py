@@ -18,7 +18,9 @@ import sublime
 import time
 from os import walk, system, listdir
 from os.path import join, splitext, abspath, isdir
-from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
+from subprocess import Popen, PIPE
+if sublime.platform() == 'windows':
+    from subprocess import STARTUPINFO, STARTF_USESHOWWINDOW
 from re import search, sub
 
 def convertPath(path):
@@ -114,8 +116,12 @@ class builder():
             if persist.settings.get('debug'):
                 persist.printf('.syntaxdb exists and is was created within 10min ' + str(os.path.getmtime(db_file)) + ' os time ' + str(time.time()))
             return
-        si = STARTUPINFO()
-        si.dwFlags |= STARTF_USESHOWWINDOW
+        if sublime.platform() == 'windows':
+            si = STARTUPINFO()
+            si.dwFlags |= STARTF_USESHOWWINDOW
+        else:
+            si = None
+            
         p = Popen([self._executable, join(self._nagelfar),'-header',db_file] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
         output, err = p.communicate()
 
