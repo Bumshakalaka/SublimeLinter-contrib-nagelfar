@@ -14,7 +14,7 @@ from SublimeLinter.lint import Linter, util, persist
 import os
 import shlex
 import string
-import sublime
+import sublime, sublime_plugin
 import time
 from os import walk, system, listdir
 from os.path import join, splitext, abspath, isdir, split
@@ -22,6 +22,16 @@ from subprocess import Popen, PIPE
 if sublime.platform() == 'windows':
     from subprocess import STARTUPINFO, STARTF_USESHOWWINDOW
 from re import search, sub
+
+import sublime, sublime_plugin
+
+class TclbuildCommand(sublime_plugin.TextCommand):
+    def run(self,edit):
+        print('Rebuild all called from the command pallete')
+        cmd = 'tclsh'
+        BASE_PATH = os.path.abspath(os.path.dirname(__file__))
+        bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.vfs', 'lib', 'app-nagelfar', 'nagelfar.tcl'))
+        databases = bd.rebuild(get_project_folder())
 
 def splitPath(path):
     '''
