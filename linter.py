@@ -24,18 +24,25 @@ if sublime.platform() == 'windows':
 from re import search, sub
 
 def splitPath(path):
+    '''
+    Split path to list using platform independend method
+    '''
     dirname = path
     path_split = []
     while True:
         dirname, leaf = split(dirname)
         if leaf:
-            path_split = [leaf] + path_split #Adds one element, at the beginning of the list
+            path_split = [leaf] + path_split
         else:
             path_split = [dirname] + path_split
             return path_split
 
 def convertPath(path):
-    """ Convert /D/path/path2 -> D:/path/path2"""
+    '''
+    Convert path from Sublime to Windows form
+    Example /D/path/path2 -> D:/path/path2
+    Path converted only if plugin used on the Windows platform
+    '''
     if sublime.platform() == 'windows':
         path = path.split('/')
         path[1] = path[1] + ':'
@@ -43,6 +50,9 @@ def convertPath(path):
     return path
 
 def get_project_folder():
+    '''
+    Return project folder
+    '''
     proj_file = sublime.active_window().project_file_name()
     if proj_file:
         project_data = sublime.active_window().project_data()
@@ -67,7 +77,7 @@ def apply_template(s):
 
 class builder():
     '''
-    Syntax database builder
+    Syntax database builder used by nagelfar to check code syntax
     '''
     def __init__(self, executable, nagelfar_path):
         self._executable = executable
@@ -128,11 +138,13 @@ class builder():
                 persist.printf('.syntaxdb exists and is was created within 10min ' + str(os.path.getmtime(db_file)) + ' os time ' + str(time.time()))
             return
         if sublime.platform() == 'windows':
+            '''Hide tclsh window'''
             si = STARTUPINFO()
             si.dwFlags |= STARTF_USESHOWWINDOW
         else:
             si = None
-            
+
+        '''Execute system command'''
         p = Popen([self._executable, join(self._nagelfar),'-header',db_file] + files, stdin=PIPE, stdout=PIPE, stderr=PIPE, startupinfo=si)
         output, err = p.communicate()
 
@@ -154,7 +166,7 @@ class builder():
             fileName = None
 
         if fileName is not None:
-            '''Rebuild only one database for fileName'''
+            '''Rebuild only one database for provided fileName'''
             persist.printf('Rebuild only one database')
             folder = self._returnDBfolderForFile(masterPath,fileName)
             files = self._scaner.scan(folder, ['.tcl', '.tm'])
@@ -162,13 +174,15 @@ class builder():
                 self._rebuild(folder, files)
             return self._checkDBfiles(masterPath)
         else:
+            '''Full scan for all available files in the project'''
             self._folderScaner.scan(masterPath)
             for folder in self._folderScaner:
+                '''Foreach folder available in the project folder check if tcl or tm files exist'''
                 files = self._scaner.scan(folder, ['.tcl', '.tm'])
                 if len(files) > 0:
                     '''Create database only if there is something interesting'''
                     self._rebuild(folder, files)
-            '''Root folder'''
+            '''Check also project folder for tcl and tm files'''
             files = self._scaner.scan(masterPath, ['.tcl', '.tm'], False)
             if len(files) > 0:
                 self._rebuild(masterPath, files)
@@ -192,6 +206,7 @@ class pathScanner():
             for (dirpath, dirnames, filenames) in walk(path):
                 for file in filenames:
                     if splitext(file)[1] in extensions:
+                        '''Remove .*syntaxbuild.tcl and .*syntaxdb.tcl from results'''
                         if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
                             continue
                         self._files.append(abspath(join(dirpath, file)))
@@ -199,6 +214,7 @@ class pathScanner():
             for file in listdir(path=path):
                 if not isdir(join(path,file)):
                     if splitext(file)[1] in extensions:
+                        '''Remove .*syntaxbuild.tcl and .*syntaxdb.tcl from results'''
                         if search('.*syntaxbuild.tcl', file) or search('.*syntaxdb.tcl', file):
                             continue
                         self._files.append(join(path,file))
@@ -250,7 +266,7 @@ class Nagelfar(Linter):
     tempfile_suffix = '-'
     default_settings = {
         'tcl_db': 'syntaxdb86.tcl',
-        'additional_db': ['$project_folder\\.syntaxdb'],
+        'additional_db': [join('$project_folder','.syntaxdb')],
     }
 
     def cmd(self):
@@ -277,7 +293,6 @@ class Nagelfar(Linter):
         databases = []
         # Check current file
         filename = sublime.active_window().active_view().file_name()
-        #TO DO: check if started first time or again?
         bd = builder(cmd, os.path.join(BASE_PATH, 'nagelfar.vfs', 'lib', 'app-nagelfar', 'nagelfar.tcl'))
         databases = bd.rebuild(get_project_folder(), filename)
 
