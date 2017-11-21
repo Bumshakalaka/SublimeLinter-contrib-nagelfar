@@ -20,6 +20,31 @@ from os.path import join, splitext, abspath
 from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
 from re import search
 
+import webbrowser
+import sublime, sublime_plugin
+
+class TclhelpCommand(sublime_plugin.TextCommand):
+    def OpenDevDoc(self,word):
+        url = 'http://devdocs.io/#q=tcl ' + word
+        persist.printf('url = ' + url)
+        webbrowser.open_new(url)
+
+    def run(self, edit):
+        curr_view = self.view
+        curr_sel = curr_view.sel()[0]
+        if curr_view.match_selector(curr_sel.begin(), 'source.tcl'):
+            word_end = curr_sel.end()
+            if curr_sel.empty():
+                word = curr_view.substr(curr_view.word(word_end)).lower()
+            else:
+                word = curr_view.substr(curr_sel).lower()
+            if word is None or len(word) <= 1:
+                persist.printf('No function selected')
+            self.OpenDevDoc(word)
+        else:
+            sublime.status_message("No Help Available")
+
+
 def convertPath(path):
     """ Convert /D/path/path2 -> D:/path/path2"""
     if sublime.platform() == 'windows':
