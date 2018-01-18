@@ -16,7 +16,8 @@ import shlex
 import string
 import sublime, sublime_plugin
 import time
-from os import walk, system, listdir
+import base64
+from os import walk, system, listdir, mkdir
 from os.path import join, splitext, abspath, isdir, split
 from subprocess import Popen, PIPE
 if sublime.platform() == 'windows':
@@ -95,6 +96,32 @@ class builder():
         self._folderScaner = folderScanner()
         self._scaner = pathScanner()
 
+    def _hash(self,data):
+        return base64.b64encode(data.encode()).decode("utf-8").replace('/','')
+
+    def _databasePath(self,masterPath):
+        if get_project_folder() = masterPath:
+            folderName = ""
+        else:
+            folderName = splitPath(masterPath)[-1]
+        persist.printf('cache folder ' + sublime.cache_path())
+        persist.printf('project name: ' + self._cacheProjectName())
+        path = join(sublime.cache_path(),'TCLlinter',self._cacheProjectName(),self._hash(folderName))
+        persist.printf('new cache database for folder: ' + folderName+ ' is ' +  path)
+        if not os.path.exists(path):
+            mkdir(path)
+        return path
+
+    def _cacheProjectName(self):
+        path = get_project_folder()
+        path_hash = self._hash(path)
+        if not os.path.exists(join(sublime.cache_path(),'TCLlinter')):
+            mkdir(join(sublime.cache_path(),'TCLlinter'))
+        if not os.path.exists(join(sublime.cache_path(),'TCLlinter',path_hash)):
+            mkdir(join(sublime.cache_path(),'TCLlinter',path_hash))
+        return path_hash
+
+
     def _checkIfInitialScan(self,masterPath):
         '''
         Check if all files in the project was already scanned
@@ -112,15 +139,15 @@ class builder():
         Return all available databases for currently used project
         '''
         _databases = []
-        self._folderScaner.scan(masterPath)
+        self._folderScaner.scan(self._databasePath(masterPath))
         for folder in self._folderScaner:
             for file in listdir(path=folder):
                 if file == '.syntaxdb':
                     _databases.append((join(folder,file)))
         '''Check also root folder for database!'''
-        for file in listdir(path=masterPath):
+        for file in listdir(path=self._databasePath(masterPath)):
             if file == '.syntaxdb':
-                _databases.append((join(masterPath,file)))
+                _databases.append((join(self._databasePath(masterPath),file)))
         return _databases
 
     def _returnDBfolderForFile(self,masterPath,fileName):
@@ -142,7 +169,9 @@ class builder():
         '''
         Rebuild syntax database for provided files
         '''
-        db_file = join(masterPath,'.syntaxdb')
+        #self._databasePath(masterPath)
+        db_file = join(self._databasePath(masterPath),'.syntaxdb')
+        persist.printf('_rebuild called for ' + db_file)
         if os.path.exists(db_file) and os.path.getmtime(db_file) + 600.0 > time.time():
             if persist.settings.get('debug'):
                 persist.printf('.syntaxdb exists and is was created within 10min ' + str(os.path.getmtime(db_file)) + ' os time ' + str(time.time()))
@@ -177,8 +206,8 @@ class builder():
 
         if fileName is not None:
             '''Rebuild only one database for provided fileName'''
-            persist.printf('Rebuild only one database')
             folder = self._returnDBfolderForFile(masterPath,fileName)
+            persist.printf('Rebuild only one database for folder ' + folder)
             files = self._scaner.scan(folder, ['.tcl', '.tm'])
             if len(files) > 0:
                 self._rebuild(folder, files)
@@ -285,7 +314,6 @@ class Nagelfar(Linter):
         We override this method, so we can change executable, add extra flags
         and include paths based on settings.
         """
-
         # take linter folder
         BASE_PATH = os.path.abspath(os.path.dirname(__file__))
 
