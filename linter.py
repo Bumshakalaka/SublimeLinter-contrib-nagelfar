@@ -126,12 +126,10 @@ class builder():
         '''
         Check if all files in the project was already scanned
         '''
-        for file in listdir(path=masterPath):
-            if file == '.tcllinter':
-                persist.printf('Not initial scann - limit rebuilding!')
-                return False
-        persist.printf('Initial scann rebuild all')
-        open(join(masterPath,'.tcllinter'),'a').close()
+        if os.path.exists(join(sublime.cache_path(),'TCLlinter',self._cacheProjectName()))
+            persist.printf("Not initial scan - rebuild only one file")
+            return False
+        persist.printf("Initial scann -rebuild all!")
         return True
 
     def _checkDBfiles(self,masterPath):
