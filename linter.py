@@ -100,7 +100,7 @@ class builder():
         return base64.b64encode(data.encode()).decode("utf-8").replace('/','')
 
     def _databasePath(self,masterPath):
-        if get_project_folder() = masterPath:
+        if get_project_folder() == masterPath:
             folderName = ""
         else:
             folderName = splitPath(masterPath)[-1]
@@ -126,7 +126,7 @@ class builder():
         '''
         Check if all files in the project was already scanned
         '''
-        if os.path.exists(join(sublime.cache_path(),'TCLlinter',self._cacheProjectName()))
+        if os.path.exists(join(sublime.cache_path(),'TCLlinter',self._cacheProjectName())):
             persist.printf("Not initial scan - rebuild only one file")
             return False
         persist.printf("Initial scann -rebuild all!")
