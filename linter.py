@@ -75,7 +75,6 @@ def get_project_folder():
     proj_file = sublime.active_window().project_file_name()
     if proj_file:
         project_data = sublime.active_window().project_data()
-        persist.printf('heeeeeeeeeereeeeeeeeeeee!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1')
         persist.printf(project_data)
         if 'folders' not in project_data or \
            project_data['folders'][0]['path'] is '.':
@@ -247,7 +246,11 @@ class builder():
         if fileName is not None:
             '''Rebuild only one database for provided fileName'''
             folder = self._returnDBfolderForFile(masterPath, fileName)
-            persist.printf('Rebuild only one database for folder ' + folder)
+            if not folder:
+                persist.printf('Nothing to rebuild - file outside the project!')
+                return
+            else:
+                persist.printf('Rebuild only one database for folder ' + folder)
             files = self._scaner.scan(folder, ['.tcl', '.tm'])
             if len(files) > 0:
                 self._rebuild(folder, files)
