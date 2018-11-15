@@ -81,7 +81,6 @@ def get_project_folder():
     Return project folder
     '''
     proj_file = sublime.active_window().project_file_name()
-    # persist.printf('get_project_folder: proj_file ' + proj_file)
     if proj_file:
         project_data = sublime.active_window().project_data()
         # if project folder not set or
@@ -128,14 +127,9 @@ class builder():
             folderName = ""
         else:
             folderName = splitPath(masterPath)[-1]
-        persist.printf('cache folder ' + sublime.cache_path())
-        persist.printf('project name: ' + self._cacheProjectName())
         path = join(
             sublime.cache_path(), 'TCLlinter',
             self._cacheProjectName(), self._hash(folderName))
-        persist.printf(
-            'new cache database for folder: ' +
-            folderName + ' is ' + path)
         if not os.path.exists(path):
             mkdir(path)
         return path
@@ -145,12 +139,6 @@ class builder():
         path_hash = self._hash(path)
         if not os.path.exists(join(sublime.cache_path(), 'TCLlinter')):
             mkdir(join(sublime.cache_path(), 'TCLlinter'))
-        if not os.path.exists(
-            join(
-                sublime.cache_path(), 'TCLlinter', path_hash
-                )
-        ):
-            mkdir(join(sublime.cache_path(), 'TCLlinter', path_hash))
         return path_hash
 
     def _checkIfInitialScan(self, masterPath):
@@ -165,6 +153,7 @@ class builder():
             persist.printf("Not initial scan - rebuild only one file")
             return False
         persist.printf("Initial scann -rebuild all!")
+        mkdir(join(sublime.cache_path(), 'TCLlinter', self._cacheProjectName()))
         return True
 
     def _checkDBfiles(self, masterPath):
