@@ -62,9 +62,10 @@ def convertPath(path):
     Path converted only if plugin used on the Windows platform
     '''
     if sublime.platform() == 'windows':
-        if search('.*\\.*',path):
+        if search('.+\\.+',path):
             #proper windows path
-            return path
+            return os.path.abspath(path)
+
         tmp_path = path.split('/')
         if path.startswith('/'):
             #full path with drive letter
@@ -72,7 +73,7 @@ def convertPath(path):
             tmp_path = "\\".join(tmp_path[1:])
         else:
             tmp_path = "\\".join(tmp_path)
-    return tmp_path
+    return os.path.abspath(tmp_path)
 
 
 def get_project_folder():
@@ -80,7 +81,7 @@ def get_project_folder():
     Return project folder
     '''
     proj_file = sublime.active_window().project_file_name()
-    persist.printf('get_project_folder: proj_file ' + proj_file)
+    # persist.printf('get_project_folder: proj_file ' + proj_file)
     if proj_file:
         project_data = sublime.active_window().project_data()
         # if project folder not set or
@@ -90,7 +91,7 @@ def get_project_folder():
             return os.path.dirname(proj_file)
         if project_data['folders'][0]['path'] is '.' or \
             not search('(^[a-z]:.*)|(^/.*)',project_data['folders'][0]['path']):
-            return normpath(join(os.path.dirname(proj_file),project_data['folders'][0]['path']))
+            return abspath(join(os.path.dirname(proj_file),project_data['folders'][0]['path']))
         return convertPath(project_data['folders'][0]['path'])
 
     # File without project - return None
@@ -244,6 +245,7 @@ class builder():
         fileName = None or rebuild one database if fileName is provided
         '''
         persist.printf('Rebuilding in project folder: {}'.format(masterPath))
+        persist.printf('Rebuilding fileName: {}'.format(fileName))
         if masterPath is None:
             persist.printf('Nothing to rebuild')
             return
