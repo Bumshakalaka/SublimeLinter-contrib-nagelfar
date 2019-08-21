@@ -359,13 +359,10 @@ class Nagelfar(Linter):
     executable = 'tclsh'
     cmd = 'tclsh'
 
-    version_args = '\"' + os.path.join(
-            os.path.abspath(os.path.dirname(__file__)),
-            'version.tcl'
-        ) + '\"'
-
-    version_re = r'^Version:\s(?P<version>\d+\.\d+\.\d+)'
-    version_requirement = '>=8.5'
+    defaults = {
+        'selector': 'source.tcl',
+        'executable':  'c:/tcl/bin/tclsh.exe'
+    }
 
     regex = r'^.*:?\s?Line\s+(?P<line>[0-9]+):\s(?:(?P<error>[E])|(?P<warning>[WN]))\s(?P<message>[^\"]+\"?(?P<near>[^\"]+).+\"?)'
     multiline = False
