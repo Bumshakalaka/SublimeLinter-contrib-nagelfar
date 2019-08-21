@@ -352,8 +352,6 @@ class folderScanner():
 class Nagelfar(Linter):
     """Provides an interface to nagelfar."""
 
-    syntax = 'tcl'
-
     # If tclsh is not available in the system
     # it makes no sense to go further
     executable = 'tclsh'
